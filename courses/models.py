@@ -11,7 +11,7 @@ from pilot.models import BaseModel
 
 class Tags(BaseModel):
     name=models.CharField(max_length=2000,blank=True, null=True)
-    
+
     def __str__(self):
         return self.name
     
@@ -19,7 +19,7 @@ class Course(BaseModel):
     name = models.CharField(max_length=2000,blank=True,null=True)
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE, null = True, blank = True)
     teacher=models.ForeignKey(Teacher,on_delete=models.CASCADE, blank=True, null=True)
-    enroller_user=models.ManyToManyField(User,blank=True, null=True, through="Enrollment")
+    enroller_user=models.ManyToManyField(User,blank=True, null=True, through='Enrollment', through_fields=('course', 'student'), related_name='enrolled_courses')
     tags=models.ManyToManyField(Tags, blank=True, null=True)
     description=RichTextField(null=True, blank=True)
     image_course=models.ImageField(null=True, blank=True, default='blank_course.png',upload_to='course/')
@@ -32,6 +32,8 @@ class Course(BaseModel):
     total_video=models.IntegerField(null=True, blank = True)
     vidoes_time=models.CharField(max_length=2000,null=True, blank = True)
     total_module=models.IntegerField(blank=True, null=True, default=0)
+    # reviews = models.ManyToManyField(User, through='Review')
+    # ratings = models.DecimalField(max_digits=3, decimal_places=2, default=0.0)
     # def save(self, *args, **kwargs):
     #     self.total_video = Video.objects.filter(module=self).count()
     #     time = sum([video.duration for video in Video.objects.filter(module=self)])
@@ -40,6 +42,15 @@ class Course(BaseModel):
     def __str__(self):
         return self.name
 
+class Review(models.Model):
+    course = models.ForeignKey('Course', on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    rating = models.PositiveIntegerField()
+    comment = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.user.username}'s review for {self.course.name}"
 
 
 class Enrollment(BaseModel):
