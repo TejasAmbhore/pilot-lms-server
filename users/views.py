@@ -2,7 +2,8 @@ from django.shortcuts import get_object_or_404
 from django.contrib.auth import login, authenticate, logout
 # from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
-# from django.contrib import messages
+from django.contrib import messages
+from django.core.mail import send_mail
 from .models import Profile, Teacher, Student, Organization
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.decorators import api_view, permission_classes
@@ -10,7 +11,9 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 from .serializers import ProfileSerializer, TeacherSerializer, StudentSerializer, OrganizationSerializer
-
+import random
+from django.http import JsonResponse
+import json
 
 # Create your views here.
 
@@ -40,6 +43,10 @@ def loginUser(request):
     else:
         return Response({'success': False, 'message': 'Username or password is incorrect'}, status=status.HTTP_401_UNAUTHORIZED)
 
+def generate_otp():
+    new_otp = random.randint(100000, 999999)
+    return new_otp
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def logoutUser(request):
@@ -52,33 +59,75 @@ def registerUser(request):
     if request.user.is_authenticated:
         return Response({'success': True,'message': 'User already authenticated'}, status=status.HTTP_226_IM_USED)
     else: 
-        username = request.data.get('name')
-        email = request.data.get('email')
-        phone = request.data.get('phone')
-        pwd = request.data.get('password')
-        cnfrm_pwd = request.data.get('confirmpassword')
-        try:
-            if pwd == cnfrm_pwd:
-                profile = Profile.objects.filter(email=email)
-                user = User.objects.filter(email=email)
+        if 'otp' in request.POST:
+            otp = request.data['otp']
+            session_otp = request.session.get('otp')
+            if str(session_otp) == otp:
+                try:
+                    username = request.data.get('name')
+                    email = request.data.get('email')
+                    phone = request.data.get('phone')
+                    pwd = request.data.get('password')
+                    cnfrm_pwd = request.data.get('confirmpassword')
+                
+                    if pwd == cnfrm_pwd:
+                        profile = Profile.objects.filter(email=email)
+                        user = User.objects.filter(email=email)
 
-                if not user.exists():
-                    user = User.objects.create_user(username=email, email=email)
-                    user.set_password(pwd)
-                    profile = Profile.objects.create(user=user, name=username, email=email, phone=phone)
-                    student = Student.objects.create(profile=profile)
-                    user.save()
-                    profile.save()
-                    student.save()
-                    login(request, user)
-                    return Response({'success': True,'message': 'Registration successful'}, status=status.HTTP_201_CREATED)
-                else:
-                    return Response({'sucesss':False, 'message': 'User already exists'}, status=status.HTTP_409_CONFLICT)
+                        if not user.exists():
+                            user = User.objects.create_user(username=email, email=email)
+                            user.set_password(pwd)
+                            profile = Profile.objects.create(user=user, name=username, email=email, phone=phone)
+                            student = Student.objects.create(profile=profile)
+                            user.save()
+                            profile.save()
+                            student.save()
+                            login(request, user)
+                            return Response({'success': True,'message': 'Registration successful'}, status=status.HTTP_201_CREATED)
+                        else:
+                            return Response({'sucesss':False, 'message': 'User already exists'}, status=status.HTTP_409_CONFLICT)
+                    else:
+                        return Response({'sucesss':False, 'message': 'Confirm Password is not equal to Password'}, status=status.HTTP_400_BAD_REQUEST)
+
+                except Exception as e:
+                    return Response({'sucesss':False, 'message': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
             else:
-                return Response({'sucesss':False, 'message': 'Confirm Password is not equal to Password'}, status=status.HTTP_400_BAD_REQUEST)
-
-        except Exception as e:
-            return Response({'sucesss':False, 'message': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                return Response({'sucesss':False, 'message':'OTP is incorrect'}, status=status.HTTP_401_UNAUTHORIZED)
+        else:
+            try:
+                username = request.data.get('name')
+                # email = request.POST.get('email')
+                phone = request.data.get('phone')
+                status = request.data.get('status')
+                pwd = request.data.get('password')
+                cnfrm_pwd = request.data.get('confirmpassword')
+                if pwd == cnfrm_pwd:
+                    print("here to generate otp")
+                    otp = generate_otp()
+                    data = json.loads(request.body)
+                    email = data.get('email')
+                    request.session['otp'] = otp
+                    request.session['email'] = email
+                    request.session['username'] = username
+                    request.session['phone'] = phone
+                    request.session['status'] = status
+                    request.session['password'] = pwd
+                    print("email:", email)
+                    print(f"the otp is {otp}")
+                    try:
+                        send_mail(
+                            'OTP Verification',
+                            f'Your OTP is {otp}',
+                            'pilotlms.kgp@gmail.com',
+                            [email],
+                            fail_silently=False,
+                        )
+                        print("otp sent ig")
+                    except Exception as e:
+                        return Response({'success': False, 'message': 'Error in sending email'}, status=status.HTTP_400_BAD_REQUEST)
+                    return Response({'success': True, 'message': 'OTP sent successfully'}, status=status.HTTP_201_OK)
+            except:
+                return Response({'success': False, 'message': 'Unprecendented error'}, status=status.HTTP_400_BAD_REQUEST)
         
 @api_view(['GET', 'PUT', 'PATCH'])
 @permission_classes([IsAuthenticated])
@@ -147,3 +196,54 @@ def profile_detail(request, profile_id):
         student = get_object_or_404(Student, profile=profile)
         student_serializer = StudentSerializer(student)
         return Response(student_serializer.data)
+
+def reset_password(request):
+    page = 'reset_password'
+    if request.user.is_authenticated:
+        return Response({'success': True, 'message': 'Password reset'})
+    
+    if request.method == 'POST':
+        try:
+            if 'otp' in request.POST:
+                otp = request.POST.get('otp')
+                if otp == str(request.session['otp']):
+                    password = request.POST.get('password')
+                    confirm_password = request.POST.get('confirmpassword')
+                    if password == confirm_password:
+                        email = request.POST.get('email')
+                        print("here", email)
+                        user = User.objects.get(email=email)
+                        user.set_password(password)
+                        user.save()
+                        messages.success(request, "Password reset successful")
+                        return Response({'success': True, 'message': 'Password reset successful'}, status=status.HTTP_202_ACCEPTED)
+                    else:
+                        messages.error(request, "Passwords don't match")
+                        return Response({'success': False, 'message': 'Password does not match'}, status=status.HTTP_400_BAD_REQUEST)
+                else:
+                    return Response({'success': False, 'message': 'OTP Verification failed'}, status=status.HTTP_401_UNAUTHORIZED)
+            else:
+                otp = generate_otp()
+                data = json.loads(request.body)
+                email = data.get('email')
+                print('email', email)
+                request.session['otp'] = otp
+                request.session['email'] = email
+                try:
+                    send_mail(
+                        'OTP Verification',
+                        f'Your OTP is {otp}',
+                        'pilotlms.kgp@gmail.com',
+                        [email],
+                        fail_silently=False,
+                    )
+                    print("otp sent", otp)
+                    return Response({'success': True, 'message': 'Verification mail sent'}, status=status.HTTP_200_OK)
+                except Exception as e:
+                    print("otp not sent", e)
+                    return Response({'sucess': False, 'message': 'Error in sending mail'}, status=status.HTTP_400_BAD_REQUEST)
+        except User.DoesNotExist:
+            print("user does not exist")
+            messages.error(request, "User does not exist")
+            return Response({'success': False, 'message': 'User does not exist'}, status=status.HTTP_404_NOT_FOUND)
+        

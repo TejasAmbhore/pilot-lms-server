@@ -39,6 +39,12 @@ class Organization(BaseModel):
     founded_year = models.DateField(blank=True, null=True)
     employees = models.IntegerField(blank=True, null=True, default = 0)
 
+    def save(self, *args, **kwargs):
+        super(Organization, self).save(*args, **kwargs)
+        if self.profile.status != 'Organization':
+            self.profile.status = 'Organization'
+            self.profile.save()
+
     def __str__(self):
         return str(self.profile.name)
 
@@ -52,6 +58,12 @@ class Teacher(BaseModel):
     date_of_birth = models.DateField(blank=True, null=True)
     research_interests = RichTextField(blank=True, null=True)
 
+    def save(self, *args, **kwargs):
+        super(Teacher, self).save(*args, **kwargs)
+        if self.profile.status != 'Teacher':
+            self.profile.status = 'Teacher'
+            self.profile.save()
+
     def __str__(self):
         return str(self.profile.name + self.department)
 
@@ -60,6 +72,12 @@ class Student(BaseModel):
     profile = models.ForeignKey(Profile, on_delete=models.CASCADE, null=True, blank=True)
     department = models.CharField(max_length=2000, blank=True, null=True)
     date_of_birth = models.DateField(blank=True, null=True)
+
+    def save(self, *args, **kwargs):
+        super(Student, self).save(*args, **kwargs)
+        if self.profile.status != 'Student':
+            self.profile.status = 'Student'
+            self.profile.save()
 
     def __str__(self):
         return str(self.profile.name + self.department)
