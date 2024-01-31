@@ -52,13 +52,11 @@ class Review(models.Model):
     def __str__(self):
         return f"{self.user.username}'s review for {self.course.name}"
 
-
 class Enrollment(BaseModel):
     course = models.ForeignKey(Course, related_name="enrollments",on_delete=models.CASCADE)
     student = models.ForeignKey(User, related_name="user_courses", on_delete=models.CASCADE)
     class Meta:
         unique_together = ('course', 'student')
-
 
 class Module(BaseModel):
     name = models.CharField(max_length=2000, blank=True, null=True)
@@ -101,8 +99,6 @@ class Comment(BaseModel):
         if self.video and self.course:
             raise ValueError("Comment can only be linked to a video or a Course, not both.")
         super().save(*args, **kwargs)
-    
-
 
 class SubComment(BaseModel):
     user=models.ForeignKey(User, on_delete=models.CASCADE,null=True,blank=True)
@@ -146,9 +142,6 @@ class UserProgress(BaseModel):
             ) * 100
         super().save(*args, **kwargs)   
 
-
-
-
 class CourseProgress(BaseModel):
     course = models.ForeignKey(Course, on_delete=models.CASCADE, blank=True, null=True)
     total_number_of_videos = models.IntegerField(default=0)
@@ -169,9 +162,6 @@ class CourseProgress(BaseModel):
         self.calculate_progress_percent()
         super().save(*args, **kwargs)
 
-
-
-
 class Quiz(BaseModel):
     video = models.ForeignKey(Video, on_delete=models.CASCADE)
     start_time = models.DurationField(default=timedelta(seconds=0))
@@ -185,6 +175,9 @@ class Answer(BaseModel):
     question = models.ForeignKey(Question, on_delete=models.CASCADE)
     text = models.CharField(max_length=1000)
     is_correct = models.BooleanField(default=False)
+
+    def __str__(self):
+        return self.question.text + " - " + self.text + " - " + str(self.is_correct)
 
 class Monitor(BaseModel):
     user=models.OneToOneField(User, on_delete=models.CASCADE,null=True,blank=True)
