@@ -24,7 +24,7 @@ from django.http import JsonResponse
 # an api which returns the complete course model without id, the complete list
 
 
-def getCourse(request):
+def index(request):
     course = Course.objects.all()
     course = list(course.values())
     for i in course:
@@ -55,7 +55,7 @@ def course_review(request, course_id):
 
 @login_required
 @api_view(['GET'])
-def allcourses(request):
+def get_all_courses(request):
     courses = Course.objects.all()
     courses, search_query = searchCourses(request)
 
@@ -158,6 +158,7 @@ def course_notes(request, course_id, note_id):
     else:
         return JsonResponse({'status': 'error', 'message': 'Not Enrolled'})
 
+
 @login_required
 @permission_classes([IsAuthenticated])
 @api_view(['GET'])
@@ -167,7 +168,8 @@ def dashboard(request):
         return JsonResponse({'status': 'success', 'message': 'Profile exists', 'profile': profile})
     else:
         return JsonResponse({'status': 'error', 'message': 'Profile does not exist'})
-    
+
+
 @login_required
 @permission_classes([IsAuthenticated])
 @api_view(['POST'])
@@ -186,29 +188,33 @@ def create_course(request):
         for tag in tags_list:
             tag_obj, created = Tags.objects.get_or_create(name=tag)
             tags_new.append(tag_obj)
-        
+
         teacher = Teacher.objects.get(profile=request.user.profile)
-        course = Course(name=name, description=desc, price=price, image_course=image, small_description=small_desc, learned=learned, teacher=teacher, organization=teacher.organization, created_at=datetime.today(), updated_at=datetime.today())
+        course = Course(name=name, description=desc, price=price, image_course=image, small_description=small_desc, learned=learned,
+                        teacher=teacher, organization=teacher.organization, created_at=datetime.today(), updated_at=datetime.today())
         course.save()
         course.tags.set(tags_new)
         return JsonResponse({'status': 'success', 'message': 'Course created successfully', 'course': course})
     else:
         return JsonResponse({'status': 'error', 'message': 'You are not a teacher'})
-    
+
+
 @login_required
 # @permission_classes([IsAuthenticated])
 @api_view(['GET'])
 def course_details(request, course_id):
     course = get_object_or_404(Course, id=course_id)
-    
+
     try:
         if request.user.is_authenticated:
             try:
-                monitor = Monitor.objects.get(user=request.user, landing_page=request.META.get('HTTP_HOST') + request.META.get('PATH_INFO'), ip=request.META.get('REMOTE_ADDR'))
+                monitor = Monitor.objects.get(user=request.user, landing_page=request.META.get(
+                    'HTTP_HOST') + request.META.get('PATH_INFO'), ip=request.META.get('REMOTE_ADDR'))
                 monitor.frequency += 1
                 monitor.save()
-                
-                profile = Profile.objects.get(user=request.user) if Profile.objects.filter(user=request.user).exists() else None
+
+                profile = Profile.objects.get(user=request.user) if Profile.objects.filter(
+                    user=request.user).exists() else None
 
                 return JsonResponse({'status': 'success', 'message': 'Course details', 'course': course, 'profile': profile})
             except Monitor.DoesNotExist:
@@ -232,24 +238,26 @@ def course_details(request, course_id):
                 monitor.operating_system = user_agent.os.family
                 monitor.device = user_agent.device.family
                 monitor.language = request.headers.get('Accept-Language')
-                monitor.screen_resolution = request.headers.get('X-Original-Request-Screen-Resolution')
+                monitor.screen_resolution = request.headers.get(
+                    'X-Original-Request-Screen-Resolution')
                 monitor.referrer = request.META.get('HTTP_REFERER')
-                monitor.landing_page = request.META.get('HTTP_HOST') + request.META.get('PATH_INFO')
+                monitor.landing_page = request.META.get(
+                    'HTTP_HOST') + request.META.get('PATH_INFO')
                 monitor.frequency = 1
                 monitor.save()
             except Exception as e:
                 return JsonResponse({'status': 'error', 'message': 'Monitor not created', 'error': str(e)})
 
-
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': 'Course not found', 'error': str(e)})
+
 
 @login_required
 @permission_classes([IsAuthenticated])
 @api_view(['PUT'])
 def update_course(request, course_id):
     course = get_object_or_404(Course, id=course_id)
-    if(course.teacher.profile.user == request.user):
+    if (course.teacher.profile.user == request.user):
         course.name = request.data['name']
         course.description = request.data['desc']
         course.price = request.data['price']
@@ -268,23 +276,26 @@ def update_course(request, course_id):
     else:
         return JsonResponse({'status': 'error', 'message': 'You are not the owner of this course'})
 
+
 @login_required
 @permission_classes([IsAuthenticated])
 @api_view(['DELETE'])
 def delete_course(request, course_id):
     course = get_object_or_404(Course, id=course_id)
-    if(course.teacher.profile.user == request.user):
+    if (course.teacher.profile.user == request.user):
         course.delete()
         return JsonResponse({'status': 'success', 'message': 'Course deleted successfully'})
     else:
         return JsonResponse({'status': 'error', 'message': 'You are not the owner of this course'})
 
+
 @login_required
 @api_view(['GET'])
 def get_courses(request):
-    teacher=get_object_or_404(Teacher, profile=request.user.profile)
+    teacher = get_object_or_404(Teacher, profile=request.user.profile)
     courses = Course.objects.filter(teacher=teacher)
     return JsonResponse({'status': 'success', 'message': 'Courses', 'courses': courses})
+
 
 @login_required
 @permission_classes([IsAuthenticated])
@@ -293,72 +304,79 @@ def create_module(request, course_id):
     course = get_object_or_404(Course, id=course_id)
     try:
         total_module = course.total_module
-        module = Module(name=request.data['name'], course=course, number=(course.total_module + 1))
+        module = Module(name=request.data['name'], course=course, number=(
+            course.total_module + 1))
         module.save()
         course.total_module = total_module + 1
-        
-        num=0
+
+        num = 0
         for video in request.FILES.getlist('videos'):
             video_name = video.name.split('.')[0]
             num += 1
-            video_obj = Video(name=video_name, module=module, number=num, video=video)
+            video_obj = Video(name=video_name, module=module,
+                              number=num, video=video)
             video_obj.save()
-        
+
         for note in request.data.getlist('notes'):
             if note.strip():
                 module.total_notes += 1
-                note_obj = Notes(user=request.user, module=module, description=note, number=module.total_notes)
+                note_obj = Notes(user=request.user, module=module,
+                                 description=note, number=module.total_notes)
                 note_obj.save()
-        
+
         course.save()
         return JsonResponse({'status': 'success', 'message': 'Module created successfully', 'module': module, 'course': course})
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': 'Module not created', 'error': str(e)})
-    
+
+
 @login_required
 @permission_classes([IsAuthenticated])
 @api_view(['PUT'])
 def update_module(request, course_id, module_id):
-    course = get_object_or_404(Course, id=request.data['course_id'])
+    course = get_object_or_404(Course, id=course_id)
     module = get_object_or_404(Module, id=module_id)
-    if(course.teacher.profile.user == request.user):
+    if (course.teacher.profile.user == request.user):
         module.name = request.data['module_name']
         module.save()
-        
+
         vids_to_delete = request.data.getlist('vids_to_delete')
         for vid_id in vids_to_delete:
             Video.objects.filter(id=vid_id).delete()
-        
+
         for video in request.FILES.getlist('videos'):
             video_name = video.name.split('.')[0]
             video_obj = Video(name=video_name, module=module, video=video)
             video_obj.save()
-        
+
         notes_to_delete = request.data.getlist('notes_to_delete')
         for note_id in notes_to_delete:
             Notes.objects.filter(id=note_id).delete()
-        
+
         for note in request.data.getlist('notes'):
             if note.strip():
-                note_obj = Notes(user=request.user, module=module, description=note)
+                note_obj = Notes(user=request.user,
+                                 module=module, description=note)
                 note_obj.save()
-        
+
         return JsonResponse({'status': 'success', 'message': 'Module updated successfully', 'module': module, 'course': course})
     else:
         return JsonResponse({'status': 'error', 'message': 'You are not the owner of this course'})
-    
+
+
 @login_required
 @permission_classes([IsAuthenticated])
 @api_view(['DELETE'])
 def delete_module(request, course_id, module_id):
     course = get_object_or_404(Course, id=course_id)
     module = get_object_or_404(Module, id=module_id)
-    if(course.teacher.profile.user == request.user):
+    if (course.teacher.profile.user == request.user):
         module.delete()
         return JsonResponse({'status': 'success', 'message': 'Module deleted successfully'})
     else:
         return JsonResponse({'status': 'error', 'message': 'You are not the owner of this course'})
-    
+
+
 @login_required
 @api_view(['GET'])
 def get_modules(request, course_id):
@@ -366,11 +384,13 @@ def get_modules(request, course_id):
     modules = Module.objects.filter(course=course)
     return JsonResponse({'status': 'success', 'message': 'Modules', 'modules': modules})
 
+
 @login_required
 @api_view(['GET'])
 def quiz_list(request, video_id):
     quizs = Quiz.objects.filter(video=video_id)
     return JsonResponse({'status': 'success', 'message': 'Quizs', 'quizs': quizs})
+
 
 @login_required
 @permission_classes([IsAuthenticated])
@@ -378,6 +398,7 @@ def quiz_list(request, video_id):
 def view_quiz(request, quiz_id):
     quiz = get_object_or_404(Quiz, id=quiz_id)
     return JsonResponse({'status': 'success', 'message': 'Quiz', 'quiz': quiz})
+
 
 @login_required
 @permission_classes([IsAuthenticated])
@@ -392,16 +413,19 @@ def create_quiz(request, video_id):
             timestamp = request.data.get('timestamp')
             if timestamp is not None and timestamp:
                 timestamp_parts = [int(part) for part in timestamp.split(':')]
-                timestamp_td = timedelta(hours=timestamp_parts[0], minutes=timestamp_parts[1], seconds=timestamp_parts[2])
-                timestamp = timestamp_parts[0]*60*60+timestamp_parts[1]*60+timestamp_parts[2]
+                timestamp_td = timedelta(
+                    hours=timestamp_parts[0], minutes=timestamp_parts[1], seconds=timestamp_parts[2])
+                timestamp = timestamp_parts[0]*60*60 + \
+                    timestamp_parts[1]*60+timestamp_parts[2]
                 start_time = int(timestamp)
                 start_time = timedelta(seconds=float(start_time))
             else:
                 start_time = 0
-            quiz = Quiz(video=video, pass_marks=pass_marks, start_time=start_time)
+            quiz = Quiz(video=video, pass_marks=pass_marks,
+                        start_time=start_time)
             quiz.save()
 
-            # input will be like - 
+            # input will be like -
             # questions = [
             #     {
             #         question_text:'sdfsdfsd',
@@ -438,7 +462,7 @@ def create_quiz(request, video_id):
             #         ]
             #     }
             # ]
-            
+
             for question in request.data.get('questions'):
                 question_text = question.get('question_text')
                 Question.objects.create(quiz=quiz, text=question_text)
@@ -447,12 +471,14 @@ def create_quiz(request, video_id):
                 for answer in answers:
                     answer_text = answer.get('answer_text')
                     is_correct = answer.get('is_correct')
-                    Answer.objects.create(question=question, text=answer_text, is_correct=is_correct)
+                    Answer.objects.create(
+                        question=question, text=answer_text, is_correct=is_correct)
 
-            return JsonResponse({'status': 'success', 'message':'Quiz created successfully', 'quiz': quiz, 'video': video})
-                    
+            return JsonResponse({'status': 'success', 'message': 'Quiz created successfully', 'quiz': quiz, 'video': video})
+
         except Exception as e:
             return JsonResponse({'status': 'error', 'error': str(e)})
+
 
 @login_required
 @permission_classes([IsAuthenticated])
@@ -477,13 +503,15 @@ def update_quiz(request, quiz_id):
                 for answer in answers:
                     answer_text = answer.get('answer_text')
                     is_correct = answer.get('is_correct')
-                    ans_obj = Answer(question=question, text=answer_text, is_correct=is_correct)
+                    ans_obj = Answer(question=question,
+                                     text=answer_text, is_correct=is_correct)
                     ans_obj.save()
 
-            return JsonResponse({'status': 'success', 'message':'Quiz updated successfully', 'quiz': quiz})
-        
+            return JsonResponse({'status': 'success', 'message': 'Quiz updated successfully', 'quiz': quiz})
+
         except Exception as e:
             return JsonResponse({'status': 'error', 'error': str(e)})
+
 
 @login_required
 @permission_classes([IsAuthenticated])
@@ -495,7 +523,8 @@ def delete_quiz(request, quiz_id):
     else:
         quiz.delete()
         return JsonResponse({'status': 'success', 'message': 'Quiz deleted successfully'})
-    
+
+
 @login_required
 @permission_classes([IsAuthenticated])
 @api_view(['POST'])
@@ -511,14 +540,15 @@ def make_teacher(request):
         r_profile.status = 'Teacher'
         r_profile.save()
         teacher = Teacher.objects.create(profile=r_profile, organization=org)
-        student=get_object_or_404(Student, profile=r_profile)
+        student = get_object_or_404(Student, profile=r_profile)
         student.delete()
         teacher.save()
 
         return JsonResponse({'status': 'success', 'message': 'Teacher created successfully', 'teacher': teacher, 'profiles': profiles})
     else:
         return JsonResponse({'status': 'error', 'message': 'You are not authorized to make a teacher'})
-    
+
+
 @login_required
 @permission_classes([IsAuthenticated])
 @api_view(['GET'])
@@ -531,15 +561,16 @@ def teacher_list(request):
         return JsonResponse({'status': 'success', 'message': 'Teachers', 'teachers': teachers})
     else:
         return JsonResponse({'status': 'error', 'message': 'You are not authorized to view teachers'})
-    
+
+
 @login_required
 @permission_classes([IsAuthenticated])
 @api_view(['POST'])
 def enroll_course(request, course_id):
     course = get_object_or_404(Course, id=course_id)
-    enrollment, created = Enrollment.objects.get_or_create(course=course, student=request.user)
+    enrollment, created = Enrollment.objects.get_or_create(
+        course=course, student=request.user)
     if created:
         return JsonResponse({'status': 'success', 'message': 'Enrolled successfully', 'enrollment': enrollment})
     else:
         return JsonResponse({'status': 'error', 'message': 'Already enrolled'})
-    
