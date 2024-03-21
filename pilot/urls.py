@@ -23,6 +23,7 @@ if settings.DEBUG:
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('user/', include('users.urls')),
-    # path('courses/', include('courses.urls')),
+    path('courses/', include('courses.urls')),
     path('__debug__/', include(debug_toolbar.urls)),
+    path('dj-rest-auth/', include('dj_rest_auth.urls'))
 ]

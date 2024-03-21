@@ -7,10 +7,11 @@ from rest_framework.permissions import IsAuthenticated
 from django.contrib import messages
 from .forms import ReviewForm
 from django.utils import timezone
-from .models import Contact_us, Course, Review, Module, Video, Comment, SubComment, Notes, Monitor, Tags, Quiz, Question, Answer, Enrollment
+from .models import Course, Review, Module, Video, Comment, SubComment, Notes, Monitor, Tags, Quiz, Question, Answer, Enrollment
+from .serializers import CommentSerializer
 from users.models import Profile, Student, Organization, Teacher
 from datetime import datetime, timedelta
-from django.contrib.gis.geoip2 import GeoIP2
+# from django.contrib.gis.geoip2 import GeoIP2
 from django_user_agents.utils import get_user_agent
 import requests
 import json
@@ -574,3 +575,44 @@ def enroll_course(request, course_id):
         return JsonResponse({'status': 'success', 'message': 'Enrolled successfully', 'enrollment': enrollment})
     else:
         return JsonResponse({'status': 'error', 'message': 'Already enrolled'})
+
+@login_required
+@permission_classes([IsAuthenticated])
+@api_view(['POST'])
+def add_video_comment(request):
+    video = get_object_or_404(Video, id=request.data.get('video_id'))
+    description = request.data.get('description')
+    print(request.user, description, video)
+    comment = Comment.objects.create(
+        user=request.user,description=description,video=video)
+    return JsonResponse({'status': 'success', 'message': 'Comment added successfully', 'comment': comment.id})
+
+@login_required
+@permission_classes([IsAuthenticated])
+@api_view(['POST'])
+def add_reply(request):
+    comment=get_object_or_404(Comment,id=request.data.get('comment_id'))
+    description = request.data.get('description')
+    reply=Comment.objects.create(
+        user=request.user, description=description, parent_comment=comment)
+    
+    return JsonResponse({'status': 'success', 'message': 'Reply added successfully', 'reply': reply})
+
+@api_view(['GET'])
+def get_video_comments(request, video_id):
+    video = get_object_or_404(Video, id=video_id)
+    comments = Comment.objects.filter(video=video)
+    comments = CommentSerializer(comments, many=True).data
+    return JsonResponse({'status': 'success', 'message': 'Comments', 'comments': comments})
+
+@login_required
+@permission_classes([IsAuthenticated])
+@api_view(['PATCH'])
+def update_comment(request, comment_id):
+    comment = get_object_or_404(Comment, id=comment_id)
+    if comment.user == request.user:
+        comment.description = request.data.get('description')
+        comment.save()
+        return JsonResponse({'status': 'success', 'message': 'Comment updated successfully', 'comment': comment})
+    else:
+        return JsonResponse({'status': 'error', 'message': 'You are not the owner of this comment'})

@@ -14,6 +14,7 @@ from .serializers import ProfileSerializer, TeacherSerializer, StudentSerializer
 import random
 from django.http import JsonResponse
 import json
+from rest_framework.authtoken.models import Token
 
 # Create your views here.
 
@@ -39,9 +40,12 @@ def loginUser(request):
 
     if user is not None:
         login(request, user)
-        return Response({'success': True, 'message': 'Login successful'}, status=status.HTTP_202_ACCEPTED)
+        # Generate token
+        token, created = Token.objects.get_or_create(user=user)
+        return Response({'success': True, 'token': token.key, 'message': 'Login successful'}, status=status.HTTP_202_ACCEPTED)
     else:
         return Response({'success': False, 'message': 'Username or password is incorrect'}, status=status.HTTP_401_UNAUTHORIZED)
+
 
 def generate_otp():
     new_otp = random.randint(100000, 999999)
@@ -59,7 +63,7 @@ def registerUser(request):
     if request.user.is_authenticated:
         return Response({'success': True,'message': 'User already authenticated'}, status=status.HTTP_226_IM_USED)
     else: 
-        if 'otp' in request.POST:
+        if 'otp' in request.data:
             otp = request.data['otp']
             session_otp = request.session.get('otp')
             if str(session_otp) == otp:
@@ -96,21 +100,20 @@ def registerUser(request):
         else:
             try:
                 username = request.data.get('name')
-                # email = request.POST.get('email')
+                email = request.data.get('email')
                 phone = request.data.get('phone')
-                status = request.data.get('status')
+                # status = request.data.get('status')
                 pwd = request.data.get('password')
                 cnfrm_pwd = request.data.get('confirmpassword')
                 if pwd == cnfrm_pwd:
                     print("here to generate otp")
                     otp = generate_otp()
-                    data = json.loads(request.body)
-                    email = data.get('email')
+                    print("otp generated")
                     request.session['otp'] = otp
                     request.session['email'] = email
                     request.session['username'] = username
                     request.session['phone'] = phone
-                    request.session['status'] = status
+                    # request.session['status'] = status
                     request.session['password'] = pwd
                     print("email:", email)
                     print(f"the otp is {otp}")
@@ -124,9 +127,11 @@ def registerUser(request):
                         )
                         print("otp sent ig")
                     except Exception as e:
-                        return Response({'success': False, 'message': 'Error in sending email'}, status=status.HTTP_400_BAD_REQUEST)
+                        print("otp not sent", e)
+                        return Response({'success': False, 'message': 'Error in sending email'+str(e)}, status=status.HTTP_400_BAD_REQUEST)
                     return Response({'success': True, 'message': 'OTP sent successfully'}, status=status.HTTP_201_OK)
-            except:
+            except Exception as e:
+                print("error in generating otp", e)
                 return Response({'success': False, 'message': 'Unprecendented error'}, status=status.HTTP_400_BAD_REQUEST)
         
 @api_view(['GET', 'PUT', 'PATCH'])

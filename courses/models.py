@@ -95,10 +95,12 @@ class Comment(BaseModel):
     description=RichTextField(null=True, blank=True)
     video = models.ForeignKey(Video, null=True, blank=True, on_delete=models.CASCADE)
     course = models.ForeignKey(Course, null=True, blank=True, on_delete=models.CASCADE)
+    parent_comment = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True)
     def save(self, *args, **kwargs):
         if self.video and self.course:
             raise ValueError("Comment can only be linked to a video or a Course, not both.")
         super().save(*args, **kwargs)
+
 
 class SubComment(BaseModel):
     user=models.ForeignKey(User, on_delete=models.CASCADE,null=True,blank=True)
